@@ -89,7 +89,8 @@ ToolOnModule(WasmEdge::VM::VM &VM, const std::string &FuncName,
   for (size_t I = 0;
        I < FuncType.getParamTypes().size() && I + 1 < Opt.Args.value().size();
        ++I) {
-    const auto TCode = FuncType.getParamTypes()[I].getCode();
+    const auto &ParamType = FuncType.getParamTypes()[I];
+    const auto TCode = ParamType.getCode();
     const auto &ArgValue = Opt.Args.value()[I + 1];
 
     switch (TCode) {
@@ -133,7 +134,24 @@ ToolOnModule(WasmEdge::VM::VM &VM, const std::string &FuncName,
       }
       break;
     }
-    // TODO: FuncRef and ExternRef
+    case TypeCode::RefNull: {
+      if (ArgValue == "null"sv) {
+        FuncArgs.emplace_back(RefVariant(ParamType));
+        FuncArgTypes.emplace_back(ParamType);
+      } else {
+        spdlog::error(
+            "Invalid argument '{}' for parameter {}: expected \"null\" for nullable reference type"sv,
+            ArgValue, I + 1);
+        return EXIT_FAILURE;
+      }
+      break;
+    }
+    case TypeCode::Ref: {
+      spdlog::error(
+          "Invalid argument '{}' for parameter {}: non-nullable reference type cannot be populated from CLI"sv,
+          ArgValue, I + 1);
+      return EXIT_FAILURE;
+    }
     default:
       break;
     }
