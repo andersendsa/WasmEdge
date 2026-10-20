@@ -272,6 +272,23 @@ static const std::array<uint8_t, 53> TrapWasm{
     0x5f, 0x73, 0x74, 0x61, 0x72, 0x74, 0x00, 0x00, 0x0a, 0x0a, 0x01,
     0x08, 0x00, 0x41, 0x01, 0x41, 0x00, 0x6d, 0x1a, 0x0b};
 
+// reftypes.wasm: exports functions with nullable and non-nullable reference
+// type parameters:
+// - "ref_null": (param funcref externref)
+// - "ref_func": (param (ref func))
+// - "ref_extern": (param (ref extern))
+// - "ref_nonnull": (param (ref func) (ref extern))
+static const std::array<uint8_t, 107> RefTypesWasm{
+    0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x17, 0x04, 0x60,
+    0x02, 0x70, 0x6f, 0x00, 0x60, 0x01, 0x64, 0x70, 0x00, 0x60, 0x01, 0x64,
+    0x6f, 0x00, 0x60, 0x02, 0x64, 0x70, 0x64, 0x6f, 0x00, 0x03, 0x05, 0x04,
+    0x00, 0x01, 0x02, 0x03, 0x07, 0x32, 0x04, 0x08, 0x72, 0x65, 0x66, 0x5f,
+    0x6e, 0x75, 0x6c, 0x6c, 0x00, 0x00, 0x08, 0x72, 0x65, 0x66, 0x5f, 0x66,
+    0x75, 0x6e, 0x63, 0x00, 0x01, 0x0a, 0x72, 0x65, 0x66, 0x5f, 0x65, 0x78,
+    0x74, 0x65, 0x72, 0x6e, 0x00, 0x02, 0x0b, 0x72, 0x65, 0x66, 0x5f, 0x6e,
+    0x6f, 0x6e, 0x6e, 0x75, 0x6c, 0x6c, 0x00, 0x03, 0x0a, 0x0d, 0x04, 0x02,
+    0x00, 0x0b, 0x02, 0x00, 0x0b, 0x02, 0x00, 0x0b, 0x02, 0x00, 0x0b};
+
 std::string simplePath() {
   static std::string Path;
   if (Path.empty()) {
@@ -324,6 +341,15 @@ std::string trapPath() {
     Path = std::filesystem::absolute(
                writeWasmToFile(TrapWasm.data(), TrapWasm.size(), "trap.wasm"))
                .string();
+  }
+  return Path;
+}
+
+std::string refTypesPath() {
+  static std::string Path;
+  if (Path.empty()) {
+    Path = writeWasmToFile(RefTypesWasm.data(), RefTypesWasm.size(),
+                           "reftypes.wasm");
   }
   return Path;
 }
@@ -985,6 +1011,26 @@ TEST(RunSubcommand, ReactorMode) {
   EXPECT_NE(callRun({"--reactor", simplePath().c_str(), "no_such_func"}),
             EXIT_SUCCESS);
   EXPECT_NE(callRun({"--reactor", simplePath().c_str()}), EXIT_SUCCESS);
+}
+
+TEST(RunSubcommand, ReferenceTypeArgs) {
+  std::string PathStr = refTypesPath();
+  const char *Path = PathStr.c_str();
+
+  EXPECT_EQ(callRun({"--reactor", Path, "ref_null", "null", "null"}),
+            EXIT_SUCCESS);
+  EXPECT_NE(callRun({"--reactor", Path, "ref_null", "not_null", "null"}),
+            EXIT_SUCCESS);
+  EXPECT_NE(callRun({"--reactor", Path, "ref_null", "null", "not_null"}),
+            EXIT_SUCCESS);
+  EXPECT_NE(callRun({"--reactor", Path, "ref_null", "null"}), EXIT_SUCCESS);
+  EXPECT_NE(callRun({"--reactor", Path, "ref_func", "null"}), EXIT_SUCCESS);
+  EXPECT_NE(callRun({"--reactor", Path, "ref_func", "not_null"}), EXIT_SUCCESS);
+  EXPECT_NE(callRun({"--reactor", Path, "ref_extern", "null"}), EXIT_SUCCESS);
+  EXPECT_NE(callRun({"--reactor", Path, "ref_extern", "not_null"}),
+            EXIT_SUCCESS);
+  EXPECT_NE(callRun({"--reactor", Path, "ref_nonnull", "null", "null"}),
+            EXIT_SUCCESS);
 }
 
 TEST(RunSubcommand, ProposalFlags) {
